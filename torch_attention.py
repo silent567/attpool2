@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding=utf-8
 
-from .torch_mapping import Gfusedmax, Sparsemax, Softmax
+from .torch_mapping import Gfusedmax, Sparsemax, Softmax, GfusedmaxN, SparsemaxN, SoftmaxN, Mean, Sum, Max
 import torch
 
 def standardize(x):
@@ -24,6 +24,21 @@ class FastFlexAddAttention(torch.nn.Module):
             self.register_parameter('gamma',torch.nn.Parameter(torch.tensor(gamma or 1.0,dtype=torch.float),requires_grad=train_gamma_flag))
             self.register_parameter('lam',torch.nn.Parameter(torch.tensor(lam or 1.0,dtype=torch.float),requires_grad=train_lam_flag))
             self.mapping_func = Gfusedmax(gamma=self.gamma,lam=self.lam)
+        elif max_type == 'softmax-n':
+            self.mapping_func = SoftmaxN()
+        elif max_type == 'sparsemax-n':
+            self.register_parameter('gamma',torch.nn.Parameter(torch.tensor(gamma or 1.0,dtype=torch.float),requires_grad=train_gamma_flag))
+            self.mapping_func = SparsemaxN(gamma=self.gamma)
+        elif max_type == 'gfusedmax-n':
+            self.register_parameter('gamma',torch.nn.Parameter(torch.tensor(gamma or 1.0,dtype=torch.float),requires_grad=train_gamma_flag))
+            self.register_parameter('lam',torch.nn.Parameter(torch.tensor(lam or 1.0,dtype=torch.float),requires_grad=train_lam_flag))
+            self.mapping_func = GfusedmaxN(gamma=self.gamma,lam=self.lam)
+        elif max_type == 'sum':
+            self.mapping_func = Sum()
+        elif max_type == 'mean':
+            self.mapping_func = Mean()
+        elif max_type == 'max':
+            self.mapping_func = Max()
         else:
             raise ValueError('Wrong max_type: %s'%max_type)
 

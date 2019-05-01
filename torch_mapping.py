@@ -54,6 +54,105 @@ class Softmax(torch.nn.Module):
         output = [torch.nn.functional.softmax(xx,dim=-1) for xx in torch.split(x,graph_size_list)]
         return torch.cat(output)
 
+class GfusedmaxN(torch.nn.Module):
+    def __init__(self,gamma=1.0,lam=1.0):
+        super(GfusedmaxN,self).__init__()
+        self.gamma = gamma
+        self.lam = lam
+    def forward(self,x,graph_size_list,edge_list):
+        '''
+        x: [N*B], torch tensor, float
+        edge_list: [[E,2]]*B, numpy array, int
+        graph_size_list: [N_1, N_2, ..., N_B]
+
+        return: [N*B], torch tensor, float
+        '''
+        fused_x = torch_gfusedlasso.apply(x,edge_list,graph_size_list,self.lam)
+        output = [gs*torch_sparsemax.apply(*arg) for arg,gs in zip(zip(torch.split(fused_x,graph_size_list),[-1]*len(graph_size_list),[self.gamma]*len(graph_size_list)),graph_size_list)]
+        return torch.cat(output)
+
+class SparsemaxN(torch.nn.Module):
+    def __init__(self,gamma=1.0,lam=None):
+        super(SparsemaxN,self).__init__()
+        self.gamma = gamma
+    def forward(self,x,graph_size_list,edge_list=None):
+        '''
+        x: [N*B], torch tensor, float
+        graph_size_list: [N_1, N_2, ..., N_B]
+        edge_list: None, existing for consistent API
+
+        return: [N*B], torch tensor, float
+        '''
+        output = [gs*torch_sparsemax.apply(*arg) for arg,gs in zip(zip(torch.split(x,graph_size_list),[-1]*len(graph_size_list),[self.gamma]*len(graph_size_list)),graph_size_list)]
+        return torch.cat(output)
+
+class SoftmaxN(torch.nn.Module):
+    def __init__(self,gamma=None,lam=None):
+        super(SoftmaxN,self).__init__()
+    def forward(self,x,graph_size_list,edge_list=None):
+        '''
+        x: [N*B], torch tensor, float
+        graph_size_list: [N_1, N_2, ..., N_B]
+        edge_list: None, existing for consistent API
+
+        return: [N*B], torch tensor, float
+        '''
+        output = [torch.nn.functional.softmax(xx,dim=-1)*gs for xx,gs in zip(torch.split(x,graph_size_list),graph_size_list)]
+        return torch.cat(output)
+
+class Sigmoid(torch.nn.Module):
+    def __init__(self,gamma=None,lam=None):
+        super(Sigmoid,self).__init__()
+    def forward(self,x,graph_size_list,edge_list=None):
+        '''
+        x: [N*B], torch tensor, float
+        graph_size_list: [N_1, N_2, ..., N_B]
+        edge_list: None, existing for consistent API
+
+        return: [N*B], torch tensor, float
+        '''
+        return torch.sigmoid(output)
+
+class Sum(torch.nn.Module):
+    def __init__(self,gamma=None,lam=None):
+        super(Sum,self).__init__()
+    def forward(self,x,graph_size_list,edge_list=None):
+        '''
+        x: [N*B], torch tensor, float
+        graph_size_list: [N_1, N_2, ..., N_B]
+        edge_list: None, existing for consistent API
+
+        return: [N*B], torch tensor, float
+        '''
+        return torch.ones_like(output)
+
+class Mean(torch.nn.Module):
+    def __init__(self,gamma=None,lam=None):
+        super(Mean,self).__init__()
+    def forward(self,x,graph_size_list,edge_list=None):
+        '''
+        x: [N*B], torch tensor, float
+        graph_size_list: [N_1, N_2, ..., N_B]
+        edge_list: None, existing for consistent API
+
+        return: [N*B], torch tensor, float
+        '''
+        return torch.cat([torch.ones([gs,],dtype=x.dtype,device=x.device)/gs for gs in graph_size_list])
+
+class Max(torch.nn.Module):
+    def __init__(self,gamma=None,lam=None):
+        super(Max,self).__init__()
+    def forward(self,x,graph_size_list,edge_list=None):
+        '''
+        x: [N*B], torch tensor, float
+        graph_size_list: [N_1, N_2, ..., N_B]
+        edge_list: None, existing for consistent API
+
+        return: [N*B], torch tensor, float
+        '''
+        output = [torch.argmax(xx,dim=-1) for xx in torch.split(x,graph_size_list)]
+        return torch.cat(output).type(x.dtype)
+
 if __name__ == '__main__':
     size = 10
     import numpy as np
