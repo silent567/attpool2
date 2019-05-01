@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding=utf-8
 
-from .torch_mapping import Gfusedmax, Sparsemax, Softmax, GfusedmaxN, SparsemaxN, SoftmaxN, Mean, Sum, Max
+from .torch_mapping import Gfusedmax, Sparsemax, Softmax, GfusedmaxN, SparsemaxN, SoftmaxN, Mean, Sum, Max, Sigmoid
 import torch
 
 def standardize(x):
@@ -33,6 +33,8 @@ class FastFlexAddAttention(torch.nn.Module):
             self.register_parameter('gamma',torch.nn.Parameter(torch.tensor(gamma or 1.0,dtype=torch.float),requires_grad=train_gamma_flag))
             self.register_parameter('lam',torch.nn.Parameter(torch.tensor(lam or 1.0,dtype=torch.float),requires_grad=train_lam_flag))
             self.mapping_func = GfusedmaxN(gamma=self.gamma,lam=self.lam)
+        elif max_type == 'sigmoid':
+            self.mapping_func = Sigmoid()
         elif max_type == 'sum':
             self.mapping_func = Sum()
         elif max_type == 'mean':

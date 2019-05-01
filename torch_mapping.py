@@ -111,7 +111,7 @@ class Sigmoid(torch.nn.Module):
 
         return: [N*B], torch tensor, float
         '''
-        return torch.sigmoid(output)
+        return torch.sigmoid(x)
 
 class Sum(torch.nn.Module):
     def __init__(self,gamma=None,lam=None):
@@ -124,7 +124,7 @@ class Sum(torch.nn.Module):
 
         return: [N*B], torch tensor, float
         '''
-        return torch.ones_like(output)
+        return torch.ones_like(x)
 
 class Mean(torch.nn.Module):
     def __init__(self,gamma=None,lam=None):
@@ -150,7 +150,7 @@ class Max(torch.nn.Module):
 
         return: [N*B], torch tensor, float
         '''
-        output = [torch.argmax(xx,dim=-1) for xx in torch.split(x,graph_size_list)]
+        output = [torch.eye(xx.size(-1), device=x.device, dtype=x.dtype)[torch.argmax(xx,dim=-1)] for xx in torch.split(x,graph_size_list)]
         return torch.cat(output).type(x.dtype)
 
 if __name__ == '__main__':
