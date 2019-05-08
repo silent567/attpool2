@@ -12,7 +12,8 @@ def identity(x):
     return x
 
 class FastFlexAddAttention(torch.nn.Module):
-    def __init__(self,input_size,output_size,max_type='softmax',norm_flag=True,lam=1.0,gamma=1.0,train_gamma_flag=False,train_lam_flag=False):
+    def __init__(self,input_size,output_size,max_type='softmax',norm_flag=True,lam=1.0,gamma=1.0
+                 ,train_gamma_flag=False,train_lam_flag=False,score_activation_func=identity,proj_activation_func=identity):
         super(FastFlexAddAttention,self).__init__()
         self.max_type = max_type
         if max_type == 'softmax':
@@ -49,6 +50,8 @@ class FastFlexAddAttention(torch.nn.Module):
         self.output_size = output_size
         self.proj_func = torch.nn.Linear(input_size,output_size)
         self.score_func = torch.nn.Linear(input_size,1)
+        self.proj_activation_func = proj_activation_func
+        self.score_activation_func = score_activation_func
         if norm_flag:
             self.score_norm = standardize
         else:
@@ -61,8 +64,8 @@ class FastFlexAddAttention(torch.nn.Module):
 
         return: [B,d'], torch tensor, float
         '''
-        proj_x = self.proj_func(x) #[N*B,d']
-        score_x = self.score_func(x).squeeze() #[N*B]
+        proj_x = self.proj_activation_func(self.proj_func(x)) #[N*B,d']
+        score_x = self.score_activation_func(self.score_func(x).squeeze()) #[N*B]
         score_x_norm = torch.cat([self.score_norm(sx) for sx in torch.split(score_x,graph_size_list)])
 
         # cuda_flag = score_x_norm.is_cuda
