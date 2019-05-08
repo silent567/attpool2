@@ -113,6 +113,19 @@ class Sigmoid(torch.nn.Module):
         '''
         return torch.sigmoid(x)
 
+class Tanh(torch.nn.Module):
+    def __init__(self,gamma=None,lam=None):
+        super(Tanh,self).__init__()
+    def forward(self,x,graph_size_list,edge_list=None):
+        '''
+        x: [N*B], torch tensor, float
+        graph_size_list: [N_1, N_2, ..., N_B]
+        edge_list: None, existing for consistent API
+
+        return: [N*B], torch tensor, float
+        '''
+        return torch.tanh(x)
+
 class Sum(torch.nn.Module):
     def __init__(self,gamma=None,lam=None):
         super(Sum,self).__init__()
