@@ -180,4 +180,15 @@ class torch_gfusedlasso(torch.autograd.Function):
         # print('backward time:', time.time()-tt)
         return tuple(grad_inp)
 
+def torch_topkmax(x, ratio=0.5):
+    '''
+    x: [N] torch.tensor, float
+    ratio: float
+    '''
+    _,topk_index = torch.topk(x, int(x.size(-1)*ratio), dim=-1, sorted=False)
+    mask = torch.zeros_like(x)
+    mask[topk_index] = 1
+    masked_x = torch.tanh(x*mask)
+    return masked_x/x.size(-1)
+
 

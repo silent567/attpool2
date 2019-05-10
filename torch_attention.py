@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding=utf-8
 
-from .torch_mapping import Gfusedmax, Sparsemax, Softmax, GfusedmaxN, SparsemaxN, SoftmaxN, Mean, Sum, Max, Sigmoid, Tanh
+from .torch_mapping import Gfusedmax, Sparsemax, Softmax, GfusedmaxN, SparsemaxN, SoftmaxN, Mean, Sum, Max, Sigmoid, Tanh, TopK, TopKN
 import torch
 
 def standardize(x):
@@ -44,6 +44,10 @@ class FastFlexAddAttention(torch.nn.Module):
             self.mapping_func = Mean()
         elif max_type == 'max':
             self.mapping_func = Max()
+        elif max_type == 'topk':
+            self.mapping_func = TopK()
+        elif max_type == 'topk-n':
+            self.mapping_func = TopKN()
         else:
             raise ValueError('Wrong max_type: %s'%max_type)
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding=utf-8
 
-from .torch_mapping_func import get_torch_pool, torch_sparsemax, torch_gfusedlasso
+from .torch_mapping_func import get_torch_pool, torch_sparsemax, torch_gfusedlasso, torch_topkmax
 import torch
 
 class Gfusedmax(torch.nn.Module):
@@ -165,6 +165,36 @@ class Max(torch.nn.Module):
         '''
         output = [torch.eye(xx.size(-1), device=x.device, dtype=x.dtype)[torch.argmax(xx,dim=-1)] for xx in torch.split(x,graph_size_list)]
         return torch.cat(output).type(x.dtype)
+
+class TopK(torch.nn.Module):
+    def __init__(self,gamma=None,lam=None,ratio=None):
+        super(TopK,self).__init__()
+        self.ratio = ratio or 0.5
+    def forward(self,x,graph_size_list,edge_list=None):
+        '''
+        x: [N*B], torch tensor, float
+        graph_size_list: [N_1, N_2, ..., N_B]
+        edge_list: None, existing for consistent API
+
+        return: [N*B], torch tensor, float
+        '''
+        output = [torch_topkmax(*arg) for arg in zip(torch.split(x,graph_size_list),[self.ratio]*len(graph_size_list))]
+        return torch.cat(output)
+
+class TopKN(torch.nn.Module):
+    def __init__(self,gamma=None,lam=None,ratio=None):
+        super(TopKN,self).__init__()
+        self.ratio = ratio or 0.5
+    def forward(self,x,graph_size_list,edge_list=None):
+        '''
+        x: [N*B], torch tensor, float
+        graph_size_list: [N_1, N_2, ..., N_B]
+        edge_list: None, existing for consistent API
+
+        return: [N*B], torch tensor, float
+        '''
+        output = [gs*torch_topkmax(*arg) for gs,arg in zip(graph_size_list,zip(torch.split(x,graph_size_list),[self.ratio]*len(graph_size_list)))]
+        return torch.cat(output)
 
 if __name__ == '__main__':
     size = 10
