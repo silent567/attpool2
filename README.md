@@ -1,4 +1,10 @@
-Requires: [pygfl](https://github.com/tansey/gfl), pytorch >= 1.0, numpy, python3
+Requires: [gfl](https://gitlab.com/hao.tang/gfl), pytorch >= 1.0, numpy, python3
+Hao.Tang's repo: https://github.com/silent567/attpool2
+
+# Quick Setup on Ubuntu
+- Install [gfl](https://gitlab.com/hao.tang/gfl). Make sure that libgsl is installed and lib-path is in the `LD_LIBRARY_PATH`
+- Install pytorch
+
 # File description 
 import line: torch_attention.py --> torch_mapping.py --> torch_mapping_func.py --> mapping.py, mp_utils.py
 - mp_utils.py: unifying all usage of multiprocessing, so that it's easy to change settings in one file
