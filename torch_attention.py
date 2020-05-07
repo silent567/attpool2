@@ -2,17 +2,17 @@
 # coding=utf-8
 
 from .torch_mapping import Gfusedmax, Sparsemax, Softmax, GfusedmaxN, SparsemaxN, SoftmaxN, Mean, Sum, Max, Sigmoid, Tanh, TopK, TopKN
-import torch
+import torch, torch.nn as nn
 
 def standardize(x):
-    x = (x - torch.mean(x,dim=-1,keepdim=True))/(torch.std(x,dim=-1,keepdim=True)+1e-7)
+    x = (x - torch.mean(x,dim=0,keepdim=True))/(torch.std(x,dim=0,keepdim=True)+1e-7)
     return x
 
 def identity(x):
     return x
 
 class FastFlexAddAttention(torch.nn.Module):
-    def __init__(self,input_size,output_size,max_type='softmax',norm_flag=True,lam=1.0,gamma=1.0
+    def __init__(self,input_size,output_size,max_type='softmax',norm_name=None,lam=1.0,gamma=1.0
                  ,train_gamma_flag=False,train_lam_flag=False,score_activation_func=identity,proj_activation_func=identity):
         super(FastFlexAddAttention,self).__init__()
         self.max_type = max_type
@@ -56,10 +56,14 @@ class FastFlexAddAttention(torch.nn.Module):
         self.score_func = torch.nn.Linear(input_size,1)
         self.proj_activation_func = proj_activation_func
         self.score_activation_func = score_activation_func
-        if norm_flag:
-            self.score_norm = standardize
-        else:
+        if norm_name is None:
             self.score_norm = identity
+        elif norm_name == 'standardize':
+            self.score_norm = standardize
+        elif norm_name == 'batch_norm':
+            self.score_norm = nn.BatchNorm1d(1,)
+        else:
+            raise ValueError(f'Wrong NormName in AttPool: {norm_name}')
     def forward(self,x,graph_size_list,edge_list):
         '''
         x: [N*B,d], torch tensor, float
@@ -70,7 +74,7 @@ class FastFlexAddAttention(torch.nn.Module):
         '''
         proj_x = self.proj_activation_func(self.proj_func(x)) #[N*B,d']
         score_x = self.score_activation_func(self.score_func(x).squeeze()) #[N*B]
-        score_x_norm = torch.cat([self.score_norm(sx) for sx in torch.split(score_x,graph_size_list)])
+        score_x_norm = torch.cat([self.score_norm(sx.unsqueeze(-1)) for sx in torch.split(score_x,graph_size_list)]).squeeze()
 
         # cuda_flag = score_x_norm.is_cuda
         # if cuda_flag:
@@ -82,22 +86,20 @@ class FastFlexAddAttention(torch.nn.Module):
         output = torch.stack([torch.sum(px*w,dim=0) for px,w in zip(torch.split(proj_x,graph_size_list),torch.split(weights,graph_size_list))],dim=0)
         return output
 
+def _block_index(i, n, d):
+    return int(i*n/d)
+def _block_size(i, n, d):
+    return _block_index(i+1, n, d) - _block_index(i, n, d)
+
 class MultipleAttention(torch.nn.Module):
-    def __init__(self,att_module,output_size,head_cnt):
+    def __init__(self, input_size, output_size, head_cnt=1, *args, **kwargs):
         super(MultipleAttention,self).__init__()
         self.head_cnt = head_cnt
         self.output_size = output_size
-        # self.attentions = []
-        for i in range(head_cnt):
-            self.__setattr__('attention%d'%i,att_module(int((i+1)*self.output_size/self.head_cnt)- int(i*self.output_size/self.head_cnt)))
-            # self.attentions.append(self.__getattr__('attention%d'%i))
-        # self.attentions = [att_module(int((i+1)*self.output_size/self.head_cnt)
-                                      # - int(i*self.output_size/self.head_cnt)
-                                      # ) for i in range(head_cnt)]
-        # for i,att in enumerate(self.attentions):
-            # # self.add_module('attention%d'%i,att)
-            # self.__setattr__('attention%d'%i,att)
-    def forward(self,*args,**kwargs):
-        # output = [att(*args,**kwargs) for att in self.attentions]
-        output = [self.__getattr__('attention%d'%i)(*args,**kwargs) for i in range(self.head_cnt)]
+        self.attentions = nn.ModuleList([
+            FastFlexAddAttention(input_size, _block_size(i, self.output_size, self.head_cnt), *args, **kwargs,)
+            for i in range(head_cnt)
+        ])
+    def forward(self, *args, **kwargs):
+        output = [att(*args,**kwargs) for att in self.attentions]
         return torch.cat(output,dim=-1)
